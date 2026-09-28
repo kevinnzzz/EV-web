@@ -25,4 +25,3 @@ dist-ssr
 
 .venv
 __pycache__/
-kaggle_upload/
