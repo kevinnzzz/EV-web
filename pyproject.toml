@@ -8,10 +8,12 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "catboost>=1.2.10",
     "matplotlib>=3.11.2",
     "numpy>=2.5.3",
     "pandas>=3.0.6",
     "scikit-learn>=1.9.1",
+    "xgboost>=3.4.1",
 ]
 
 [project.scripts]
@@ -20,3 +22,11 @@ ev-web = "ev_web:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "nbconvert>=7.17.1",
+    "optuna>=5.0.0",
+    "scipy>=1.18.1",
+]
