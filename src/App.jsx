@@ -1,15 +1,22 @@
-import './App.css';
+import { useEffect, useSyncExternalStore } from 'react';
+import Landing from './pages/Landing';
+import Dashboard from './pages/Dashboard';
+
+const subscribe = (cb) => {
+  window.addEventListener('hashchange', cb);
+  return () => window.removeEventListener('hashchange', cb);
+};
+
+const isDashboard = () => window.location.hash.startsWith('#/dashboard');
 
 function App() {
-  return (
-    <>
-      <div className='App'>
-        <div className='card'>
-          <h1 className='text-3xl font-bold italic text-red-500'>tes</h1>
-        </div>
-      </div>
-    </>
-  );
+  const onDashboard = useSyncExternalStore(subscribe, isDashboard);
+
+  useEffect(() => {
+    if (onDashboard) window.scrollTo(0, 0);
+  }, [onDashboard]);
+
+  return onDashboard ? <Dashboard /> : <Landing />;
 }
 
 export default App;
