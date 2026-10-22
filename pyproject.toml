@@ -7,13 +7,14 @@ authors = [
     { name = "Akmaley Zal", email = "akmaleyzal@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = [
+dependencies = [  # runtime API saja; library notebook ada di grup dev
     "catboost>=1.2.10",
-    "matplotlib>=3.11.2",
+    "fastapi>=0.159.1",
     "numpy>=2.5.3",
     "pandas>=3.0.6",
-    "scikit-learn>=1.9.1",
-    "xgboost>=3.4.1",
+    "uvicorn>=0.54.0",
+    "xgboost>=3.4.1 ; sys_platform != 'linux'",
+    "xgboost-cpu>=3.4.1 ; sys_platform == 'linux'",  # server Linux tanpa GPU: tanpa nvidia-nccl
 ]
 
 [project.scripts]
@@ -24,9 +25,14 @@ requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = [
+dev = [  # scikit-learn sengaja di sini: bila terpasang, xgboost ikut mengimpornya (+RSS di server)
+    "httpx2>=2.16.0",  # TestClient starlette
     "ipykernel>=7.3.0",
+    "matplotlib>=3.11.2",
     "nbconvert>=7.17.1",
     "optuna>=5.0.0",
+    "plotly>=7.1.0",
+    "pytest>=9.1.1",
+    "scikit-learn>=1.9.1",
     "scipy>=1.18.1",
 ]

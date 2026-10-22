@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
-from xgboost import XGBClassifier
+from xgboost import Booster
 
 TARGET = "Will_Buy_EV"
 NUMERIC = [
@@ -75,25 +75,42 @@ def prior_correct(p: np.ndarray, s: float) -> np.ndarray:
     return p / (p + s * (1 - p))
 
 
+def load_meta(model_dir) -> dict:
+    """Isi ensemble.json: fitur per model, bobot, threshold, prior scale, tabel frekuensi, metrik holdout."""
+    meta = json.loads((Path(model_dir) / "ensemble.json").read_text())
+    meta["freq"] = {c: pd.Series({float(k): n for k, n in m.items()}) for c, m in meta["freq"].items()}
+    return meta
+
+
+def load_seeds(model_dir, name: str, n_seeds: int) -> list:
+    """Model per seed untuk satu algoritma: "xgb" (.ubj) atau "cat" (.cbm)."""
+    model_dir = Path(model_dir)
+    if name == "cat":
+        return [CatBoostClassifier().load_model(str(model_dir / f"cat_{i}.cbm")) for i in range(n_seeds)]
+    # Booster, bukan XGBClassifier: wrapper sklearn mewajibkan scikit-learn (+~50 MB RSS di server);
+    # inplace_predict = jalur yang dipakai XGBClassifier.predict_proba, hasil identik
+    xgb = [Booster(model_file=model_dir / f"xgb_{i}.ubj") for i in range(n_seeds)]
+    for b in xgb:
+        b.set_param({"device": "cpu"})  # model hasil training GPU tetap jalan di server CPU
+    return xgb
+
+
 def load(model_dir) -> dict:
     """Muat artefak notebook -> {'xgb': [model per seed], 'cat': [...], + isi ensemble.json}."""
-    model_dir = Path(model_dir)
-    meta = json.loads((model_dir / "ensemble.json").read_text())
-    meta["freq"] = {c: pd.Series({float(k): n for k, n in m.items()}) for c, m in meta["freq"].items()}
-    xgb = []
-    for i in range(meta["n_seeds"]):
-        m = XGBClassifier()
-        m.load_model(model_dir / f"xgb_{i}.ubj")
-        m.set_params(device="cpu")  # model hasil training GPU tetap jalan di server CPU
-        xgb.append(m)
-    cat = [CatBoostClassifier().load_model(str(model_dir / f"cat_{i}.cbm")) for i in range(meta["n_seeds"])]
-    return {**meta, "xgb": xgb, "cat": cat}
+    meta = load_meta(model_dir)
+    return {**meta, **{name: load_seeds(model_dir, name, meta["n_seeds"]) for name in ("xgb", "cat")}}
 
 
-def predict_proba(models: dict, df: pd.DataFrame) -> np.ndarray:
-    """P(Will_Buy_EV = Yes): rata-rata antar-seed -> prior correction -> weighted soft voting."""
+def predict_proba(models: dict, df: pd.DataFrame, model: str = "ensemble") -> np.ndarray:
+    """P(Will_Buy_EV = Yes). "xgb" / "cat": rata-rata antar-seed -> prior correction;
+    "ensemble": weighted soft voting keduanya."""
     X = prepare(df, models["freq"])
-    p = {name: prior_correct(np.mean([m.predict_proba(X[models["features"][name]])[:, 1] for m in models[name]],
-                                     axis=0), models["prior_scale"][name])
-         for name in ("xgb", "cat")}
+    p = {}
+    for name in ("xgb", "cat"):
+        if model in (name, "ensemble"):
+            Xm = X[models["features"][name]]
+            seeds = [m.inplace_predict(Xm) if name == "xgb" else m.predict_proba(Xm)[:, 1] for m in models[name]]
+            p[name] = prior_correct(np.mean(seeds, axis=0), models["prior_scale"][name])
+    if model != "ensemble":
+        return p[model]
     return models["weight_xgb"] * p["xgb"] + (1 - models["weight_xgb"]) * p["cat"]

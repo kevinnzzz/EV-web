@@ -1,0 +1,19 @@
+# Render Blueprint: Dashboard > New > Blueprint > pilih repo ini.
+services:
+  - type: web
+    name: ev-web-api
+    runtime: docker
+    plan: free  # 0.1 CPU / 512 MB, tidur setelah 15 menit idle (bangun ~1 menit)
+    region: singapore
+    healthCheckPath: /health
+    buildFilter:  # push yang hanya mengubah frontend tidak memicu rebuild backend
+      paths:
+        - src/ev_web/**
+        - model/**
+        - pyproject.toml
+        - uv.lock
+        - Dockerfile
+        - .dockerignore
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false  # origin frontend, mis. https://ev-web.vercel.app (beberapa: pisahkan dengan koma)

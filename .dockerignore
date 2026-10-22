@@ -1,0 +1,10 @@
+# allowlist: build context hanya berisi yang dibutuhkan image API (tanpa frontend, data mentah, notebook)
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/ev_web
+!model/ensemble.json
+!model/*.ubj
+!model/*.cbm
+**/__pycache__
