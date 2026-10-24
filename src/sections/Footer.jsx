@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BRAND } from '../data/stats';
+import footerBg from '../assets/footer-bg.jpg'; // ganti dengan nama file gambar kamu
 
 // Ganti dengan data kamu
 const CONTACT = {
@@ -73,6 +74,10 @@ export default function Footer() {
   return (
     <footer className='mx-auto max-w-[1120px] px-5 pb-8 pt-16 sm:pt-20'>
       <div className='relative overflow-hidden rounded-[28px] bg-[linear-gradient(120deg,#2c3a35,#1b2420)] p-6 text-white sm:p-10'>
+        {/* Gambar latar dengan opacity (atur opacity-10 s/d opacity-40 sesuai selera) */}
+        <img src={footerBg} alt='' aria-hidden='true' className='pointer-events-none absolute inset-0 size-full object-cover opacity-10' />
+
+        {/* Dekorasi lingkaran */}
         <div aria-hidden='true' className='absolute -bottom-24 -right-16 size-80 rounded-full border border-white/[0.06]' />
         <div aria-hidden='true' className='absolute -bottom-10 right-0 size-52 rounded-full border border-white/[0.06]' />
 

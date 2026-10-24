@@ -1,9 +1,9 @@
 import Icon from '../components/Icon';
 import { testimonials } from '../data/stats';
 
-import foto1 from '../assets/SUV.jpg';
-import foto2 from '../assets/SUV.jpg';
-import foto3 from '../assets/SUV.jpg';
+import foto1 from '../assets/orang1.jpg';
+import foto2 from '../assets/orang2.jpg';
+import foto3 from '../assets/orang3.jpg';
 import cardBg from '../assets/Hero-EV.jpg';
 
 // key = id testimoni di data/stats.js
@@ -29,11 +29,7 @@ export default function Insights() {
   return (
     <section id='temuan' className='mx-auto max-w-[1120px] px-5 pt-16 sm:pt-20'>
       <div className='flex items-end justify-between gap-4'>
-        <h2 className='text-2xl font-semibold tracking-tight'>Apa kata mereka</h2>
-        <a href='#/dashboard' className='hidden shrink-0 items-center gap-2 text-[13px] text-ink/70 transition-colors hover:text-ink sm:inline-flex'>
-          Lihat analisis lengkap
-          <Icon name='arrow' className='size-4' />
-        </a>
+        <h2 className='text-2xl font-semibold tracking-tight'>Apa kata mereka?</h2>
       </div>
 
       <div className='mx-auto mt-6 grid max-w-md gap-4 md:max-w-none md:grid-cols-3 md:gap-4 lg:gap-5'>
