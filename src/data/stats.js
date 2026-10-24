@@ -21,8 +21,6 @@ export const cars = [
     name: 'Sedan listrik',
     traits: 'Komuter harian · Perjalanan jauh',
     text: 'Nyaman dan stabil untuk rutinitas harian maupun perjalanan antarkota.',
-    stat: '17,2%',
-    statNote: 'pemilik sedan berminat beralih ke EV',
   },
   {
     id: 'suv',
@@ -31,17 +29,13 @@ export const cars = [
     tag: 'Terbanyak berminat',
     traits: 'Keluarga · Ruang lega',
     text: 'Kabin lapang dan posisi duduk tinggi untuk keluarga dan bawaan banyak.',
-    stat: '18,1%',
-    statNote: 'pemilik SUV berminat beralih ke EV',
   },
   {
     id: 'hatch',
-    variant: 'hatch',
+    variant: 'hatchback',
     name: 'Hatchback listrik',
     traits: 'Kota padat · Ringkas',
     text: 'Ringkas dan lincah, mudah diparkir dan pas untuk mobilitas dalam kota.',
-    stat: '17,4%',
-    statNote: 'pemilik hatchback berminat beralih ke EV',
   },
 ];
 
@@ -65,5 +59,30 @@ export const insights = [
     tag: 'Catatan',
     title: 'Jumlah stasiun umum nyaris sama di kedua kelompok',
     text: 'Rata-rata 4,8 stasiun dekat rumah pada yang berminat dan 5,0 pada yang tidak. Pengisian di rumah lebih menentukan.',
+  },
+];
+
+export const testimonials = [
+  {
+    id: 't1',
+    name: 'Maria L.',
+    car: 'Sedan listrik',
+    rating: 5,
+    quote: 'Hasil prediksinya jelas dan mudah dipahami. Saya jadi tahu faktor apa yang membuat saya cocok beralih ke mobil listrik.',
+    // photo: diisi di Insights.jsx (opsional)
+  },
+  {
+    id: 't2',
+    name: 'Budi S.',
+    car: 'SUV listrik',
+    rating: 5,
+    quote: 'Cukup isi profil, hasilnya langsung keluar. Perbandingan dengan kelompok yang mirip sangat membantu keputusan keluarga kami.',
+  },
+  {
+    id: 't3',
+    name: 'Rina A.',
+    car: 'Hatchback listrik',
+    rating: 5,
+    quote: 'Tampilannya simpel dan penjelasannya tidak bertele-tele. Ternyata akses pengisian di rumah sangat berpengaruh untuk saya.',
   },
 ];

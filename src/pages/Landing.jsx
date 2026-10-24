@@ -1,5 +1,6 @@
 import Navbar from '../components/Navbar';
 import Hero from '../sections/Hero';
+import About from '../sections/About';
 import Why from '../sections/Why';
 import Cars from '../sections/Cars';
 import Highlight from '../sections/Highlight';
@@ -13,6 +14,7 @@ export default function Landing() {
       <Navbar />
       <main>
         <Hero />
+        <About />
         <Why />
         <Cars />
         <Highlight />

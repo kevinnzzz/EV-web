@@ -1,24 +1,24 @@
 const steps = [
   {
     n: '01',
-    title: 'Pilih faktor',
-    text: 'Mulai dari satu faktor, misalnya subsidi, tipe wilayah, atau akses pengisian daya di rumah.',
+    title: 'Isi profil kamu',
+    text: 'Masukkan data dirimu, misalnya usia, pendapatan, atau akses pengisian daya di rumah.',
   },
   {
     n: '02',
-    title: 'Bandingkan kelompok',
-    text: 'Lihat berapa persen tiap kelompok yang berminat membeli, berdampingan dalam satu tampilan.',
+    title: 'Lihat hasil prediksi',
+    text: 'Profilmu dibandingkan dengan pola ratusan ribu responden untuk melihat kecocokanmu.',
   },
   {
     n: '03',
-    title: 'Baca polanya',
-    text: 'Temukan faktor yang benar-benar membedakan, dan mana yang hanya tampak penting.',
+    title: 'Pahami alasannya',
+    text: 'Cek faktor yang paling memengaruhi hasilnya, dan mana yang tidak terlalu berpengaruh.',
   },
 ];
 
 export default function Steps() {
   return (
-    <section id='cara-kerja' className='mx-auto max-w-[1120px] px-1 pt-16 sm:pt-20'>
+    <section id='cara-kerja' className='mx-auto max-w-[1120px] px-5 pt-16 sm:pt-20'>
       <h2 className='text-2xl font-semibold tracking-tight'>Cara kerja</h2>
       <div className='mt-6 grid gap-4 lg:grid-cols-3'>
         {steps.map((s) => (

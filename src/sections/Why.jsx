@@ -25,7 +25,7 @@ const items = [
 
 export default function Why() {
   return (
-    <section id='mengapa' className='mx-auto max-w-[1120px] px-1 pt-6'>
+    <section id='mengapa' className='mx-auto max-w-[1120px] px-5 pt-6'>
       <h2 className='text-[22px] font-semibold tracking-tight sm:text-2xl'>Mengapa dashboard ini berguna</h2>
       <div className='mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         {items.map((it) => (
