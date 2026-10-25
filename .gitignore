@@ -27,6 +27,20 @@ dist-ssr
 
 .venv
 __pycache__/
+*.py[cod]
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Backup and temp files
+_api_backup/
+_backup/
+*.bak
+*.tmp
 
 .agents
 

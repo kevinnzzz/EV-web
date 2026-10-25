@@ -15,8 +15,10 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from ev_web import model as ev
 
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).resolve().parents[2] / "model"))
-CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
-                .split(",") if o.strip()]
+CORS_ORIGINS = [o.strip() for o in os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:5175,http://127.0.0.1:5175,http://localhost:3000,http://127.0.0.1:3000"
+).split(",") if o.strip()]
 MODELS = {"xgboost": ("xgb", "XGBoost"), "catboost": ("cat", "CatBoost"), "ensemble": ("ensemble", "Ensemble")}
 
 log = logging.getLogger("uvicorn.error")
@@ -35,12 +37,12 @@ class Customer(BaseModel):
     Charging_Stations_Near_Work: int = Field(ge=0, le=19, title="Stasiun charging dekat tempat kerja")
     Environmental_Concern_Level: int = Field(ge=1, le=5, title="Kepedulian lingkungan",
                                              description="Skala 1 (rendah) sampai 5 (tinggi)")
-    Gender: Literal[*ev.CATEGORIES["Gender"]] = Field(title="Gender")
-    City_Type: Literal[*ev.CATEGORIES["City_Type"]] = Field(title="Tipe wilayah tempat tinggal")
-    Current_Car_Type: Literal[*ev.CATEGORIES["Current_Car_Type"]] = Field(title="Tipe mobil saat ini")
-    Home_Charging_Possible: Literal[*ev.TO_INT["Home_Charging_Possible"]] = Field(title="Bisa charging di rumah")
-    Subsidy_Available: Literal[*ev.TO_INT["Subsidy_Available"]] = Field(title="Subsidi EV tersedia")
-    Range_Anxiety_Level: Literal[*ev.TO_INT["Range_Anxiety_Level"]] = Field(title="Kecemasan jarak tempuh")
+    Gender: Literal["Female", "Male", "Other"] = Field(title="Gender")
+    City_Type: Literal["Rural", "Suburban", "Urban"] = Field(title="Tipe wilayah tempat tinggal")
+    Current_Car_Type: Literal["Hatchback", "SUV", "Sedan", "Truck"] = Field(title="Tipe mobil saat ini")
+    Home_Charging_Possible: Literal["No", "Yes"] = Field(title="Bisa charging di rumah")
+    Subsidy_Available: Literal["No", "Yes"] = Field(title="Subsidi EV tersedia")
+    Range_Anxiety_Level: Literal["Low", "Medium", "High"] = Field(title="Kecemasan jarak tempuh")
 
 
 class PredictRequest(BaseModel):
@@ -83,8 +85,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="EV Purchase Prediction API", version="1.0.0", lifespan=lifespan,
               description="Prediksi minat membeli kendaraan listrik (Will_Buy_EV) — ensemble XGBoost + CatBoost.")
-app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["GET", "POST"],
-                   allow_headers=["Content-Type"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 def fail(status: int, code: str, message: str) -> HTTPException:

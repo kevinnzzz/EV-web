@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://evmodel.vercel.app').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://evmodel.onrender.com').replace(/\/$/, '');
 
 async function readResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -22,7 +22,7 @@ function getApiErrorMessage(detail, fallback) {
 }
 
 /**
- * Memeriksa status kesehatan server backend dan ketersediaan model.
+ * Memeriksa status root API.
  */
 export async function getHealth() {
   const response = await fetch(`${API_BASE_URL}/`, {
@@ -35,7 +35,21 @@ export async function getHealth() {
 }
 
 /**
+ * Memeriksa status kesehatan server backend dan ketersediaan model.
+ */
+export async function getHealthDetail() {
+  const response = await fetch(`${API_BASE_URL}/health`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`Health check failed with status ${response.status}`);
+  }
+  return readResponse(response);
+}
+
+/**
  * Mendapatkan daftar model machine learning yang didukung dan status ketersediaannya.
+ * Response: { models: [{name, display_name, available, holdout_metrics}], artifact: {...} }
  */
 export async function getModels() {
   const response = await fetch(`${API_BASE_URL}/models`, {
@@ -62,12 +76,14 @@ export async function getFeatures() {
 
 /**
  * Mengirimkan fitur ke model untuk mendapatkan hasil prediksi.
- * @param {string} modelName - API deployment ini hanya menyediakan 'xgboost'
- * @param {object} features - 13 fitur dalam tipe dan nilai yang diterima API
+ * @param {string} modelName - 'xgboost' | 'catboost' | 'ensemble'
+ * @param {object} features  - 13 fitur sesuai kontrak API (Customer schema)
+ * @returns {{ model_name, prediction, prediction_label, probability, threshold }}
  */
 export async function postPredict(modelName, features) {
-  if (modelName !== 'xgboost') {
-    throw new Error('API yang terhubung saat ini hanya menyediakan model XGBoost.');
+  const validModels = ['xgboost', 'catboost', 'ensemble'];
+  if (!validModels.includes(modelName)) {
+    throw new Error(`Model '${modelName}' tidak dikenal. Pilihan: ${validModels.join(', ')}.`);
   }
 
   let response;
@@ -78,7 +94,8 @@ export async function postPredict(modelName, features) {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(features),
+      // API mengharapkan { model_name, features } bukan langsung fitur
+      body: JSON.stringify({ model_name: modelName, features }),
     });
   } catch (error) {
     if (error instanceof TypeError) {

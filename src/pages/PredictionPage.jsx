@@ -8,33 +8,51 @@ import {
   Zap, 
   Info
 } from 'lucide-react';
-import { postPredict, getHealth } from '../services/api';
+import { postPredict, getHealth, API_BASE_URL } from '../services/api';
 
+// Nilai default harus dalam rentang yang diterima API:
+// Age 25-69, Annual_Income_USD 30000-188549, Daily_Commute_km 5-98.7,
+// Number_of_Cars_Owned 1-4, Charging_Stations_Near_Home 0-14,
+// Charging_Stations_Near_Work 0-19, Environmental_Concern_Level 1-5
+// Home_Charging_Possible: 'Yes'|'No', Subsidy_Available: 'Yes'|'No'
+// Range_Anxiety_Level: 'Low'|'Medium'|'High'
+// Current_Car_Type: 'Hatchback'|'SUV'|'Sedan'|'Truck'
 const DEFAULT_FORM_VALUES = {
-  Age: 30,
-  Annual_Income_USD: 150000,
-  Daily_Commute_km: 100,
-  Number_of_Cars_Owned: 2,
-  Charging_Stations_Near_Home: 15,
-  Charging_Stations_Near_Work: 10,
-  Environmental_Concern_Level: 5,
+  Age: 35,
+  Annual_Income_USD: 80000,
+  Daily_Commute_km: 25,
+  Number_of_Cars_Owned: 1,
+  Charging_Stations_Near_Home: 5,
+  Charging_Stations_Near_Work: 5,
+  Environmental_Concern_Level: 3,
   Gender: 'Male',
   City_Type: 'Urban',
-  Current_Car_Type: 'EV',
-  Home_Charging_Possible: 1,
-  Subsidy_Available: 1,
-  Range_Anxiety_Level: 1,
+  Current_Car_Type: 'Sedan',
+  Home_Charging_Possible: 'Yes',
+  Subsidy_Available: 'Yes',
+  Range_Anxiety_Level: 'Medium',
 };
 
-const NUMERIC_SELECT_FIELDS = new Set([
+const MODELS = [
+  { name: 'ensemble', label: 'Ensemble', desc: 'XGBoost + CatBoost (akurasi terbaik)' },
+  { name: 'xgboost', label: 'XGBoost', desc: 'Model gradient boosting berbasis tree' },
+  { name: 'catboost', label: 'CatBoost', desc: 'Model gradient boosting Yandex' },
+];
+
+// Fields yang nilainya numerik murni (bukan string kategori)
+const NUMERIC_FIELDS = new Set([
+  'Age',
+  'Annual_Income_USD',
+  'Daily_Commute_km',
+  'Number_of_Cars_Owned',
+  'Charging_Stations_Near_Home',
+  'Charging_Stations_Near_Work',
   'Environmental_Concern_Level',
-  'Home_Charging_Possible',
-  'Subsidy_Available',
-  'Range_Anxiety_Level',
 ]);
 
 export default function PredictionPage() {
   const [formData, setFormData] = useState(DEFAULT_FORM_VALUES);
+  const [selectedModel, setSelectedModel] = useState('ensemble');
   const [predictionState, setPredictionState] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const [result, setResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -58,7 +76,7 @@ export default function PredictionPage() {
     const { name, value, type } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' || NUMERIC_SELECT_FIELDS.has(name)
+      [name]: type === 'number' || NUMERIC_FIELDS.has(name)
         ? (value === '' ? '' : Number(value))
         : value,
     }));
@@ -71,6 +89,13 @@ export default function PredictionPage() {
     setErrorMessage('');
   };
 
+  const handleModelSelect = (modelName) => {
+    setSelectedModel(modelName);
+    setPredictionState('idle');
+    setResult(null);
+    setErrorMessage('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setPredictionState('loading');
@@ -78,7 +103,7 @@ export default function PredictionPage() {
     setResult(null);
 
     try {
-      // Validasi sederhana nilai wajib
+      // Kirim payload sesuai kontrak API (Customer schema)
       const payload = {
         ...formData,
         Age: Number(formData.Age),
@@ -88,12 +113,12 @@ export default function PredictionPage() {
         Charging_Stations_Near_Home: Number(formData.Charging_Stations_Near_Home),
         Charging_Stations_Near_Work: Number(formData.Charging_Stations_Near_Work),
         Environmental_Concern_Level: Number(formData.Environmental_Concern_Level),
-        Home_Charging_Possible: Number(formData.Home_Charging_Possible),
-        Subsidy_Available: Number(formData.Subsidy_Available),
-        Range_Anxiety_Level: Number(formData.Range_Anxiety_Level),
+        // Home_Charging_Possible, Subsidy_Available → string 'Yes'|'No'
+        // Range_Anxiety_Level → string 'Low'|'Medium'|'High'
+        // Gender, City_Type, Current_Car_Type → string
       };
 
-      const res = await postPredict('xgboost', payload);
+      const res = await postPredict(selectedModel, payload);
       setResult(res);
       setPredictionState('success');
     } catch (err) {
@@ -123,7 +148,7 @@ export default function PredictionPage() {
           <Info className="w-5 h-5 text-[#A97936] shrink-0 mt-0.5" />
           <div className="text-xs md:text-sm text-[#202522] leading-relaxed">
             <span className="font-semibold text-[#202522]">Informasi Layanan Backend: </span>
-            API FastAPI belum dapat diakses di <code className="px-1.5 py-0.5 rounded bg-white font-mono text-xs text-[#26352F]">https://evmodel.vercel.app</code>. Jika aplikasi dibuka dari browser, pastikan origin frontend diizinkan oleh konfigurasi CORS API.
+            API FastAPI belum dapat diakses di <code className="px-1.5 py-0.5 rounded bg-white font-mono text-xs text-[#26352F]">{API_BASE_URL}</code>. Jika aplikasi dibuka dari browser, pastikan server FastAPI sedang berjalan dan konfigurasi CORS mengizinkan origin frontend.
           </div>
         </div>
       )}
@@ -136,34 +161,31 @@ export default function PredictionPage() {
             <label className="block text-xs font-semibold text-[#202522] uppercase tracking-wider mb-2.5">
               Pilih Model Machine Learning
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="p-4 rounded-2xl border text-left bg-[#26352F] text-white border-[#26352F] shadow-xs"
-                aria-pressed="true"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-sm">XGBoost</span>
-                  <span className="w-2 h-2 rounded-full bg-[#397454]"></span>
-                </div>
-                <div className="text-xs text-[#EBEAE6]">
-                  Model yang tersedia pada API deploy
-                </div>
-              </button>
-
-              <button
-                type="button"
-                disabled
-                className="p-4 rounded-2xl border text-left bg-white text-[#6B6E6A] border-[#E5E3DE] cursor-not-allowed opacity-70"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-sm">CatBoost</span>
-                  <span className="w-2 h-2 rounded-full bg-[#E5E3DE]"></span>
-                </div>
-                <div className="text-xs">
-                  Belum tersedia pada API ini
-                </div>
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {MODELS.map((m) => {
+                const isActive = selectedModel === m.name;
+                return (
+                  <button
+                    key={m.name}
+                    type="button"
+                    onClick={() => handleModelSelect(m.name)}
+                    aria-pressed={isActive}
+                    className={`p-4 rounded-2xl border text-left transition-all btn-press ${
+                      isActive
+                        ? 'bg-[#26352F] text-white border-[#26352F] shadow-xs'
+                        : 'bg-white text-[#202522] border-[#E5E3DE] hover:border-[#26352F]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-sm">{m.label}</span>
+                      <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-[#5DB07E]' : 'bg-[#E5E3DE]'}`}></span>
+                    </div>
+                    <div className={`text-xs ${isActive ? 'text-[#EBEAE6]' : 'text-[#6B6E6A]'}`}>
+                      {m.desc}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -186,14 +208,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Age"
-                    min="17"
-                    max="100"
+                    min="25"
+                    max="69"
                     required
                     value={formData.Age}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 17 - 100 tahun</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 25–69 tahun</span>
                 </div>
 
                 {/* Gender */}
@@ -239,13 +261,14 @@ export default function PredictionPage() {
                     type="number"
                     name="Annual_Income_USD"
                     step="1"
-                    min="0"
+                    min="30000"
+                    max="188549"
                     required
                     value={formData.Annual_Income_USD}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Masukkan pendapatan tahunan dalam USD.</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: $30.000–$188.549</span>
                 </div>
               </div>
             </div>
@@ -268,14 +291,15 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Daily_Commute_km"
-                    min="0"
+                    min="5"
+                    max="98.7"
                     step="0.1"
                     required
                     value={formData.Daily_Commute_km}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jarak perjalanan harian dalam kilometer.</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 5–98.7 km/hari</span>
                 </div>
 
                 {/* Number of Cars Owned */}
@@ -286,13 +310,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Number_of_Cars_Owned"
-                    min="0"
+                    min="1"
+                    max="4"
                     required
                     value={formData.Number_of_Cars_Owned}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah mobil yang dimiliki.</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 1–4 mobil</span>
                 </div>
 
                 {/* Current Car Type */}
@@ -310,8 +335,6 @@ export default function PredictionPage() {
                     <option value="SUV">SUV</option>
                     <option value="Hatchback">Hatchback</option>
                     <option value="Truck">Truck / Pickup</option>
-                    <option value="EV">EV</option>
-                    <option value="Petrol">Petrol</option>
                   </select>
                 </div>
               </div>
@@ -336,12 +359,13 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Home"
                     min="0"
+                    max="14"
                     required
                     value={formData.Charging_Stations_Near_Home}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah stasiun pengisian dekat rumah.</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 0–14 stasiun</span>
                 </div>
 
                 {/* Stations Near Work */}
@@ -353,12 +377,13 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Work"
                     min="0"
+                    max="19"
                     required
                     value={formData.Charging_Stations_Near_Work}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah stasiun pengisian dekat tempat kerja.</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 0–19 stasiun</span>
                 </div>
 
                 {/* Home Charging Possible */}
@@ -372,8 +397,8 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value={1}>Ya (Bisa Pasang Charger)</option>
-                    <option value={0}>Tidak Memungkinkan</option>
+                    <option value="Yes">Ya (Bisa Pasang Charger)</option>
+                    <option value="No">Tidak Memungkinkan</option>
                   </select>
                 </div>
               </div>
@@ -419,8 +444,8 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value={1}>Tersedia Insentif / Subsidi</option>
-                    <option value={0}>Tidak Ada Subsidi</option>
+                    <option value="Yes">Tersedia Insentif / Subsidi</option>
+                    <option value="No">Tidak Ada Subsidi</option>
                   </select>
                 </div>
 
@@ -435,12 +460,12 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value={1}>1 (Rendah / Tenang)</option>
-                    <option value={2}>2 (Sedang)</option>
-                    <option value={3}>3 (Tinggi)</option>
+                    <option value="Low">Low (Rendah / Tenang)</option>
+                    <option value="Medium">Medium (Sedang)</option>
+                    <option value="High">High (Tinggi)</option>
                   </select>
                   <span className="text-[11px] text-[#6B6E6A] mt-1 block">
-                    API menerima nilai skala 1–3.
+                    Kecemasan jarak tempuh EV (Low/Medium/High)
                   </span>
                 </div>
               </div>
@@ -487,7 +512,7 @@ export default function PredictionPage() {
                 Hasil Inferensi Model
               </span>
               <span className="text-xs px-2.5 py-1 rounded-md bg-[#F6F5F2] text-[#202522] font-mono capitalize">
-                XGBoost
+                {MODELS.find((m) => m.name === selectedModel)?.label ?? selectedModel}
               </span>
             </div>
 
@@ -571,11 +596,11 @@ export default function PredictionPage() {
                     </div>
                     <div className="bg-[#F6F5F2] p-2.5 rounded-lg">
                       <span className="block text-[10px] uppercase text-[#6B6E6A]">Charger Rumah:</span>
-                      <span className="font-medium text-[#202522]">{formData.Home_Charging_Possible === 1 ? 'Ya (1)' : 'Tidak (0)'}</span>
+                      <span className="font-medium text-[#202522]">{formData.Home_Charging_Possible}</span>
                     </div>
                     <div className="bg-[#F6F5F2] p-2.5 rounded-lg">
                       <span className="block text-[10px] uppercase text-[#6B6E6A]">Subsidi:</span>
-                      <span className="font-medium text-[#202522]">{formData.Subsidy_Available === 1 ? 'Ya (1)' : 'Tidak (0)'}</span>
+                      <span className="font-medium text-[#202522]">{formData.Subsidy_Available}</span>
                     </div>
                   </div>
                 </div>
@@ -598,8 +623,8 @@ export default function PredictionPage() {
                 <div className="bg-[#F6F5F2] rounded-2xl p-4 text-xs text-[#6B6E6A] space-y-2">
                   <span className="font-semibold text-[#202522] block">Informasi API:</span>
                   <p>
-                    Permintaan dikirim ke <code className="text-[#202522] font-mono">https://evmodel.vercel.app/predict</code>.
-                    Jika error koneksi terjadi dari browser, tambahkan origin website frontend ke konfigurasi CORS FastAPI.
+                    Model yang dipilih: <code className="text-[#202522] font-mono">{selectedModel}</code>.<br />
+                    Jika error koneksi terjadi, pastikan origin frontend diizinkan di konfigurasi CORS API.
                   </p>
                 </div>
 
@@ -621,10 +646,11 @@ export default function PredictionPage() {
               <span>Tentang Inferensi Model</span>
             </h4>
             <p className="text-xs text-[#6B6E6A] leading-relaxed">
-              Prediksi dikirim ke API FastAPI XGBoost yang telah di-deploy. Probabilitas dan keputusan klasifikasi menggunakan nilai threshold yang dikembalikan langsung oleh API.
+              Prediksi dikirim ke API FastAPI yang telah di-deploy. API mendukung tiga model: XGBoost, CatBoost, dan Ensemble (kombinasi keduanya). Threshold klasifikasi dikembalikan langsung oleh API.
             </p>
-            <div className="text-[11px] text-[#6B6E6A] pt-2 border-t border-[#E5E3DE]">
-              Target: <span className="font-mono text-[#202522]">Will_Buy_EV (Yes / No)</span>
+            <div className="text-[11px] text-[#6B6E6A] pt-2 border-t border-[#E5E3DE] space-y-0.5">
+              <div>Target: <span className="font-mono text-[#202522]">Will_Buy_EV (Yes / No)</span></div>
+              <div>Model aktif: <span className="font-mono text-[#202522]">{selectedModel}</span></div>
             </div>
           </div>
         </div>
