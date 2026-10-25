@@ -63,23 +63,12 @@ export async function getFeatures() {
 /**
  * Mengirimkan fitur ke model untuk mendapatkan hasil prediksi.
  * @param {string} modelName - API deployment ini hanya menyediakan 'xgboost'
- * @param {object} features - objek fitur formulir dalam bentuk kategori aslinya
+ * @param {object} features - 13 fitur dalam tipe dan nilai yang diterima API
  */
 export async function postPredict(modelName, features) {
   if (modelName !== 'xgboost') {
     throw new Error('API yang terhubung saat ini hanya menyediakan model XGBoost.');
   }
-
-  const payload = {
-    ...features,
-    Home_Charging_Possible: features.Home_Charging_Possible === 'Yes' ? 1 : 0,
-    Subsidy_Available: features.Subsidy_Available === 'Yes' ? 1 : 0,
-    Range_Anxiety_Level: {
-      Low: 1,
-      Medium: 2,
-      High: 3,
-    }[features.Range_Anxiety_Level],
-  };
 
   let response;
   try {
@@ -89,7 +78,7 @@ export async function postPredict(modelName, features) {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(features),
     });
   } catch (error) {
     if (error instanceof TypeError) {

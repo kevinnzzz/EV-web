@@ -4,11 +4,13 @@ import footerBg from '../assets/footer-bg.jpg'; // ganti dengan nama file gambar
 
 // Ganti dengan data kamu
 const CONTACT = {
-  email: 'email-ev@contoh.com', // email tujuan pesan
+  email: 'kharismaadhiw@gmail.com',
   phone: '+62 800-0000-0000',
   address: 'Surabaya, Jawa Timur',
   hours: 'Senin – Jumat, 09.00 – 17.00',
 };
+
+const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${CONTACT.email}`;
 
 const iconProps = {
   viewBox: '0 0 24 24',
@@ -52,14 +54,54 @@ const ArrowIcon = () => (
 
 export default function Footer() {
   const [name, setName] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
 
-  // Membuka aplikasi email dengan isi pesan yang sudah terisi
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const subject = encodeURIComponent(`Pesan dari ${name}`);
-    const body = encodeURIComponent(`Nama: ${name}\n\n${message}`);
-    window.location.href = `mailto:${CONTACT.email}?subject=${subject}&body=${body}`;
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+
+    try {
+      const response = await fetch(FORMSUBMIT_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email: senderEmail,
+          _replyto: senderEmail,
+          message,
+          _subject: `Pesan dari ${name}`,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || result.success === 'false' || result.success === false) {
+        throw new Error(result.message || 'Layanan formulir menolak pesan. Silakan coba lagi.');
+      }
+
+      setSubmitStatus({
+        type: 'success',
+        message: 'Pesan berhasil dikirim ke layanan formulir. Jika ini pengiriman pertama, aktifkan alamat tujuan melalui email konfirmasi FormSubmit.',
+      });
+      setName('');
+      setSenderEmail('');
+      setMessage('');
+    } catch (error) {
+      setSubmitStatus({
+        type: 'error',
+        message: error instanceof Error
+          ? error.message
+          : 'Pesan gagal dikirim. Periksa koneksi internet lalu coba lagi.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClass = 'w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none transition-colors focus:border-white/30';
@@ -104,14 +146,24 @@ export default function Footer() {
           {/* Kanan: form kirim pesan */}
           <div className='md:border-l md:border-white/10 md:pl-10'>
             <h2 className='text-xl font-semibold tracking-tight'>Kirim pesan kepada kami</h2>
-            <p className='mt-2 max-w-sm text-sm leading-relaxed text-white/60'>Punya pertanyaan atau masukan tentang data ini? Tulis di bawah dan pesan akan dikirim ke email kami.</p>
+            <p className='mt-2 max-w-sm text-sm leading-relaxed text-white/60'>Punya pertanyaan atau masukan tentang data ini? Pesan akan dikirim ke email kami melalui FormSubmit.</p>
 
             <form onSubmit={handleSubmit} className='mt-6 space-y-3'>
-              <input type='text' required value={name} onChange={(e) => setName(e.target.value)} placeholder='Nama Anda' aria-label='Nama' className={inputClass} />
-              <textarea required rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder='Tulis pesan Anda' aria-label='Pesan' className={`${inputClass} resize-none`} />
+              <input type='text' name='name' required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder='Nama Anda' aria-label='Nama' autoComplete='name' className={inputClass} />
+              <input type='email' name='email' required maxLength={254} value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} placeholder='Email Anda' aria-label='Email Anda' autoComplete='email' className={inputClass} />
+              <textarea name='message' required maxLength={5000} rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder='Tulis pesan Anda' aria-label='Pesan' className={`${inputClass} resize-none`} />
+              {submitStatus && (
+                <p
+                  className={`text-sm ${submitStatus.type === 'success' ? 'text-emerald-200' : 'text-red-200'}`}
+                  role='status'
+                  aria-live='polite'
+                >
+                  {submitStatus.message}
+                </p>
+              )}
               <div className='flex justify-end'>
-                <button type='submit' className='group inline-flex items-center gap-2.5 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink transition-colors hover:bg-mist'>
-                  Kirim pesan
+                <button type='submit' disabled={isSubmitting} className='group inline-flex items-center gap-2.5 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink transition-colors hover:bg-mist disabled:cursor-wait disabled:opacity-60'>
+                  {isSubmitting ? 'Mengirim...' : 'Kirim pesan'}
                   <ArrowIcon />
                 </button>
               </div>

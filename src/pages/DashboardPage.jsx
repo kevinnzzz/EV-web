@@ -442,27 +442,52 @@ function MetricCard({ icon: Icon, label, value, note, accent = 'text-[#26352F]' 
 
 function TargetDistribution({ stats, total }) {
   if (total === 0) return <ChartEmpty />;
+  const colors = ['#397454', '#9AA59E', '#D9A441'];
+  const segments = stats.reduce((result, item, index) => {
+    const percentage = (item.count / total) * 100;
+    const start = result.offset;
+    const end = start + percentage;
+    const color = colors[index % colors.length];
+    return {
+      offset: end,
+      items: [...result.items, {
+        ...item,
+        percentage,
+        color,
+        segment: `${color} ${start}% ${end}%`,
+      }],
+    };
+  }, { offset: 0, items: [] }).items;
+
   return (
-    <div className="space-y-5">
-      {stats.map((item) => {
-        const percentage = (item.count / total) * 100;
-        return (
-          <div key={item.label}>
-            <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
-              <span className="font-medium text-[#202522]">{categoryLabel(item.label)}</span>
-              <span className="shrink-0 font-semibold text-[#202522]">
-                {formatNumber(item.count)} <span className="font-normal text-[#6B6E6A]">· {formatPercent(percentage)}</span>
-              </span>
+    <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center">
+      <div
+        role="img"
+        aria-label={`Distribusi minat membeli EV: ${segments.map((item) => `${categoryLabel(item.label)} ${formatPercent(item.percentage)}`).join(', ')}`}
+        className="grid h-44 w-44 shrink-0 place-items-center rounded-full"
+        style={{ background: `conic-gradient(${segments.map((item) => item.segment).join(', ')})` }}
+      >
+        <div className="grid h-28 w-28 place-content-center rounded-full bg-white text-center">
+          <span className="text-xs text-[#6B6E6A]">Berminat</span>
+          <span className="text-2xl font-bold text-[#202522]">
+            {formatPercent((stats.find((item) => item.label === 'Yes')?.count ?? 0) / total * 100)}
+          </span>
+        </div>
+      </div>
+      <div className="w-full max-w-sm space-y-4">
+        {segments.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} aria-hidden="true" />
+              <span className="truncate text-sm font-medium text-[#202522]">{categoryLabel(item.label)}</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-[#EBEAE6]">
-              <div
-                className={`h-full rounded-full ${item.label === 'Yes' ? 'bg-[#397454]' : 'bg-[#718078]'}`}
-                style={{ width: `${percentage}%` }}
-              />
+            <div className="shrink-0 text-right">
+              <p className="text-sm font-semibold text-[#202522]">{formatPercent(item.percentage)}</p>
+              <p className="text-xs text-[#6B6E6A]">{formatNumber(item.count)} responden</p>
             </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
@@ -485,6 +510,45 @@ function RateChart({ groups }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function VerticalRateChart({ groups }) {
+  if (groups.length === 0) return <ChartEmpty />;
+  const columns = `repeat(${groups.length}, minmax(4.5rem, 1fr))`;
+
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="min-w-[24rem]">
+        <div className="mb-2 flex items-center justify-between text-[11px] text-[#6B6E6A]">
+          <span>Proporsi berminat</span>
+          <span>Skala 0–100%</span>
+        </div>
+        <div className="grid h-40 items-end gap-3 border-b border-l border-[#E5E3DE] px-3" style={{ gridTemplateColumns: columns }}>
+          {groups.map((group) => (
+            <div key={group.label} className="flex h-full flex-col items-center justify-end gap-1">
+              <span className="text-[11px] font-semibold text-[#26352F]">{formatPercent(group.rate)}</span>
+              <div
+                className="w-full max-w-12 rounded-t-md bg-[#57906D] transition-[height]"
+                style={{ height: `${Math.max(group.rate, 2)}%` }}
+                role="img"
+                aria-label={`${categoryLabel(group.label)}: ${formatPercent(group.rate)}`}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-3 px-3 pt-2" style={{ gridTemplateColumns: columns }}>
+          {groups.map((group) => (
+            <div key={group.label} className="min-w-0 text-center">
+              <p className="truncate text-[11px] font-medium text-[#202522]" title={categoryLabel(group.label)}>
+                {categoryLabel(group.label)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-[#6B6E6A]">{formatNumber(group.count)} orang</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -797,13 +861,13 @@ export default function DashboardPage() {
             title="Apakah proporsi berbeda pada tingkat range anxiety?"
             subtitle="Kategori rendah, sedang, dan tinggi sesuai nilai pada dataset."
           >
-            <RateChart groups={analytics.rates.rangeAnxiety} />
+            <VerticalRateChart groups={analytics.rates.rangeAnxiety} />
           </ChartCard>
           <ChartCard
             title="Bagaimana proporsi menurut kepedulian lingkungan?"
             subtitle="Skala 1–5 ditampilkan sebagai kelompok diskret, bukan korelasi numerik."
           >
-            <RateChart groups={analytics.rates.environment} />
+            <VerticalRateChart groups={analytics.rates.environment} />
           </ChartCard>
         </div>
       </section>
@@ -820,25 +884,25 @@ export default function DashboardPage() {
             title="Proporsi pembelian menurut kelompok usia"
             subtitle="Kelompok umur dalam tahun; setiap baris mencantumkan jumlah sampel."
           >
-            <RateChart groups={analytics.rates.age} />
+            <VerticalRateChart groups={analytics.rates.age} />
           </ChartCard>
           <ChartCard
             title="Proporsi pembelian menurut pendapatan"
             subtitle="Rentang pendapatan tahunan dalam USD; kelompok berbasis ambang untuk perbandingan."
           >
-            <RateChart groups={analytics.rates.income} />
+            <VerticalRateChart groups={analytics.rates.income} />
           </ChartCard>
           <ChartCard
             title="Proporsi pembelian menurut jarak komuter"
             subtitle="Jarak perjalanan harian dalam km, dikelompokkan agar tren mudah dibandingkan."
           >
-            <RateChart groups={analytics.rates.commute} />
+            <VerticalRateChart groups={analytics.rates.commute} />
           </ChartCard>
           <ChartCard
             title="Proporsi pembelian menurut stasiun dekat rumah"
             subtitle="Jumlah stasiun pengisian publik di sekitar rumah, dalam kelompok 0–2, 3–5, dan 6+."
           >
-            <RateChart groups={analytics.rates.stations} />
+            <VerticalRateChart groups={analytics.rates.stations} />
           </ChartCard>
         </div>
       </section>

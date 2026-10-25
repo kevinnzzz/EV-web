@@ -11,20 +11,27 @@ import {
 import { postPredict, getHealth } from '../services/api';
 
 const DEFAULT_FORM_VALUES = {
-  Age: 35,
-  Annual_Income_USD: 65000,
-  Daily_Commute_km: 25,
-  Number_of_Cars_Owned: 1,
-  Charging_Stations_Near_Home: 3,
-  Charging_Stations_Near_Work: 4,
-  Environmental_Concern_Level: 4,
-  Gender: 'Female',
-  City_Type: 'Suburban',
-  Current_Car_Type: 'Sedan',
-  Home_Charging_Possible: 'Yes',
-  Subsidy_Available: 'Yes',
-  Range_Anxiety_Level: 'Medium',
+  Age: 30,
+  Annual_Income_USD: 150000,
+  Daily_Commute_km: 100,
+  Number_of_Cars_Owned: 2,
+  Charging_Stations_Near_Home: 15,
+  Charging_Stations_Near_Work: 10,
+  Environmental_Concern_Level: 5,
+  Gender: 'Male',
+  City_Type: 'Urban',
+  Current_Car_Type: 'EV',
+  Home_Charging_Possible: 1,
+  Subsidy_Available: 1,
+  Range_Anxiety_Level: 1,
 };
+
+const NUMERIC_SELECT_FIELDS = new Set([
+  'Environmental_Concern_Level',
+  'Home_Charging_Possible',
+  'Subsidy_Available',
+  'Range_Anxiety_Level',
+]);
 
 export default function PredictionPage() {
   const [formData, setFormData] = useState(DEFAULT_FORM_VALUES);
@@ -51,7 +58,9 @@ export default function PredictionPage() {
     const { name, value, type } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value,
+      [name]: type === 'number' || NUMERIC_SELECT_FIELDS.has(name)
+        ? (value === '' ? '' : Number(value))
+        : value,
     }));
   };
 
@@ -79,6 +88,9 @@ export default function PredictionPage() {
         Charging_Stations_Near_Home: Number(formData.Charging_Stations_Near_Home),
         Charging_Stations_Near_Work: Number(formData.Charging_Stations_Near_Work),
         Environmental_Concern_Level: Number(formData.Environmental_Concern_Level),
+        Home_Charging_Possible: Number(formData.Home_Charging_Possible),
+        Subsidy_Available: Number(formData.Subsidy_Available),
+        Range_Anxiety_Level: Number(formData.Range_Anxiety_Level),
       };
 
       const res = await postPredict('xgboost', payload);
@@ -174,14 +186,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Age"
-                    min="25"
-                    max="69"
+                    min="17"
+                    max="100"
                     required
                     value={formData.Age}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang data model: 25 - 69 tahun</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang API: 17 - 100 tahun</span>
                 </div>
 
                 {/* Gender */}
@@ -227,14 +239,13 @@ export default function PredictionPage() {
                     type="number"
                     name="Annual_Income_USD"
                     step="1"
-                    min="30000"
-                    max="188549"
+                    min="0"
                     required
                     value={formData.Annual_Income_USD}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang data model: $30.000 - $188.549 / tahun</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Masukkan pendapatan tahunan dalam USD.</span>
                 </div>
               </div>
             </div>
@@ -257,15 +268,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Daily_Commute_km"
-                    min="5"
-                    max="98.7"
+                    min="0"
                     step="0.1"
                     required
                     value={formData.Daily_Commute_km}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">5 - 98,7 km per hari</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jarak perjalanan harian dalam kilometer.</span>
                 </div>
 
                 {/* Number of Cars Owned */}
@@ -276,14 +286,13 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Number_of_Cars_Owned"
-                    min="1"
-                    max="4"
+                    min="0"
                     required
                     value={formData.Number_of_Cars_Owned}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">1 - 4 mobil</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah mobil yang dimiliki.</span>
                 </div>
 
                 {/* Current Car Type */}
@@ -301,6 +310,8 @@ export default function PredictionPage() {
                     <option value="SUV">SUV</option>
                     <option value="Hatchback">Hatchback</option>
                     <option value="Truck">Truck / Pickup</option>
+                    <option value="EV">EV</option>
+                    <option value="Petrol">Petrol</option>
                   </select>
                 </div>
               </div>
@@ -325,13 +336,12 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Home"
                     min="0"
-                    max="14"
                     required
                     value={formData.Charging_Stations_Near_Home}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">0 - 14 stasiun · radius 5 km</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah stasiun pengisian dekat rumah.</span>
                 </div>
 
                 {/* Stations Near Work */}
@@ -343,13 +353,12 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Work"
                     min="0"
-                    max="19"
                     required
                     value={formData.Charging_Stations_Near_Work}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">0 - 19 stasiun · radius 5 km</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Jumlah stasiun pengisian dekat tempat kerja.</span>
                 </div>
 
                 {/* Home Charging Possible */}
@@ -363,8 +372,8 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value="Yes">Ya (Bisa Pasang Charger)</option>
-                    <option value="No">Tidak Memungkinkan</option>
+                    <option value={1}>Ya (Bisa Pasang Charger)</option>
+                    <option value={0}>Tidak Memungkinkan</option>
                   </select>
                 </div>
               </div>
@@ -410,8 +419,8 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value="Yes">Tersedia Insentif / Subsidi</option>
-                    <option value="No">Tidak Ada Subsidi</option>
+                    <option value={1}>Tersedia Insentif / Subsidi</option>
+                    <option value={0}>Tidak Ada Subsidi</option>
                   </select>
                 </div>
 
@@ -426,12 +435,12 @@ export default function PredictionPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   >
-                    <option value="Low">Low (Rendah / Tenang)</option>
-                    <option value="Medium">Medium (Sedang)</option>
-                    <option value="High">High (Kekhawatiran Tinggi)</option>
+                    <option value={1}>1 (Rendah / Tenang)</option>
+                    <option value={2}>2 (Sedang)</option>
+                    <option value={3}>3 (Tinggi)</option>
                   </select>
                   <span className="text-[11px] text-[#6B6E6A] mt-1 block">
-                    Dikirim sebagai skala ordinal 1 (Low) - 3 (High)
+                    API menerima nilai skala 1–3.
                   </span>
                 </div>
               </div>
@@ -562,11 +571,11 @@ export default function PredictionPage() {
                     </div>
                     <div className="bg-[#F6F5F2] p-2.5 rounded-lg">
                       <span className="block text-[10px] uppercase text-[#6B6E6A]">Charger Rumah:</span>
-                      <span className="font-medium text-[#202522]">{formData.Home_Charging_Possible}</span>
+                      <span className="font-medium text-[#202522]">{formData.Home_Charging_Possible === 1 ? 'Ya (1)' : 'Tidak (0)'}</span>
                     </div>
                     <div className="bg-[#F6F5F2] p-2.5 rounded-lg">
                       <span className="block text-[10px] uppercase text-[#6B6E6A]">Subsidi:</span>
-                      <span className="font-medium text-[#202522]">{formData.Subsidy_Available}</span>
+                      <span className="font-medium text-[#202522]">{formData.Subsidy_Available === 1 ? 'Ya (1)' : 'Tidak (0)'}</span>
                     </div>
                   </div>
                 </div>
