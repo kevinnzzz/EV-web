@@ -27,7 +27,8 @@ model ada di [BACKEND.md](BACKEND.md).
 
 - [uv](https://docs.astral.sh/uv/) untuk Python, virtualenv, dan dependency. Python 3.14.5 tidak perlu dipasang
   manual karena uv mengunduhnya sesuai `.python-version`.
-- Git. File model (`model/*.cbm`, 70–91 MB per file) ikut ter-clone karena disimpan di git biasa, tanpa LFS.
+- Git. File model (`model/cat.cbm` 91 MB, `model/xgb.ubj` 7 MB) ikut ter-clone karena disimpan di git biasa, tanpa
+  LFS.
 - Docker, hanya bila ingin menjalankan image yang sama dengan server.
 
 Pasang uv, lalu cek dengan `uv --version`:
@@ -64,8 +65,8 @@ Pastikan artefak model utuh dan cocok dengan hasil training:
 uv run pytest
 ```
 
-Ada 18 test, selesai sekitar 10 detik. Salah satunya membandingkan prediksi dengan `model/sample_predictions.csv`
-(1000 baris holdout beserta probabilitas dari run training) dengan toleransi 1e-6.
+Ada 18 test, selesai sekitar 7 detik. Salah satunya membandingkan prediksi dengan `model/sample_predictions.csv`
+(1000 baris holdout beserta probabilitas yang diharapkan) dengan toleransi 1e-6.
 
 ## Menjalankan API
 
@@ -80,8 +81,7 @@ uv run uvicorn ev_web.api:app --reload
 | http://127.0.0.1:8000/health   | status tiap model                                         |
 | http://127.0.0.1:8000/features | skema 13 input beserta batas nilai dan opsi kategori      |
 
-Model dimuat sekali saat startup (sekitar 2 detik). API siap setelah log `Model xgb: 3 seed dimuat` dan
-`Model cat: 3 seed dimuat` muncul. `--reload` me-restart server setiap file Python berubah, jadi hanya untuk
+Model dimuat sekali saat startup. API siap setelah log `Model xgb dimuat` dan `Model cat dimuat` muncul. `--reload` me-restart server setiap file Python berubah, jadi hanya untuk
 development.
 
 Contoh request:
@@ -117,7 +117,7 @@ Response:
 
 ```json
 {"model_name": "ensemble", "prediction": 1, "prediction_label": "Yes",
- "probability": 0.4943556342410368, "threshold": 0.3519219601248307}
+ "probability": 0.4982679598754899, "threshold": 0.3519219601248307}
 ```
 
 `model_name` bisa `ensemble` (default), `xgboost`, atau `catboost`. Nilai di luar rentang data training ditolak
@@ -180,14 +180,15 @@ library NCCL untuk GPU tidak ikut terpasang. Server berjalan dengan 1 worker seb
 Render hanya me-rebuild bila ada perubahan di `src/ev_web/`, `model/`, `pyproject.toml`, `uv.lock`, `Dockerfile`, atau
 `.dockerignore` (`buildFilter`). Push yang hanya mengubah frontend tidak me-redeploy backend.
 
-Plan free punya RAM 512 MB dan 0.1 CPU, sementara API memakai sekitar 410 MB setelah model dimuat. Service tidur
+Plan free punya RAM 512 MB dan 0.1 CPU, sementara API memakai sekitar 250 MB setelah model dimuat. Service tidur
 setelah 15 menit tanpa request, dan request pertama sesudahnya menunggu sekitar 1 menit. Penanganan OOM ada di
 [BACKEND.md](BACKEND.md#deploy-render-free).
 
 ## Melatih ulang model
 
 Seluruh training ada di `notebook/main.ipynb`: EDA, feature engineering, seleksi fitur (null importance lalu
-konfirmasi 10-fold), tuning Optuna, training 10-fold, ensemble, evaluasi holdout, dan penyimpanan artefak ke
+konfirmasi 10-fold), tuning Optuna, training 10-fold, ensemble, refit 3 seed lalu pemilihan seed terbaik per
+algoritma, evaluasi holdout, dan penyimpanan artefak ke
 `models/`. Preprocessing memakai `src/ev_web/model.py`, modul yang juga dipakai API, sehingga fitur saat training
 dan saat serving dihitung dengan kode yang sama.
 
@@ -218,12 +219,12 @@ Training penuh dijalankan di Kaggle dengan GPU T4 ×2 dan memakan sekitar 8 jam 
 
 API membaca `model/`, sedangkan notebook menulis ke `models/`. Setelah training:
 
-1. Timpa isi `model/` dengan isi `models/` hasil notebook (`ensemble.json`, `xgb_{i}.ubj`, `cat_{i}.cbm`,
+1. Timpa isi `model/` dengan isi `models/` hasil notebook (`ensemble.json`, `xgb.ubj`, `cat.cbm`,
    `sample_predictions.csv`, `results/`).
 2. Jalankan `uv run pytest`. Test round-trip memastikan model terbaca dan prediksinya sama dengan hasil di Kaggle.
    Bila test skema gagal, sesuaikan `Field(ge=..., le=...)` di class `Customer` (`src/ev_web/api.py`) dengan rentang
    data yang baru.
-3. Cek ukuran file sebelum push. GitHub menolak file di atas 100 MB, dan `cat_*.cbm` saat ini 70–91 MB.
+3. Cek ukuran file sebelum push. GitHub menolak file di atas 100 MB, dan `cat.cbm` saat ini 91 MB.
 4. Commit dan push. Render me-redeploy otomatis karena `model/**` termasuk `buildFilter`.
 
 ## Mengelola dependency
@@ -235,7 +236,7 @@ API membaca `model/`, sedangkan notebook menulis ke `models/`. Setelah training:
   `uv.lock` tidak sinkron dengan `pyproject.toml`.
 
 scikit-learn sengaja hanya ada di grup dev. Bila terpasang, xgboost ikut mengimpornya dan memori API naik sekitar
-50 MB, padahal sisa RAM di plan free Render hanya sekitar 100 MB. Karena itu XGBoost dimuat sebagai `xgboost.Booster`,
+50 MB, padahal RAM plan free Render hanya 512 MB. Karena itu XGBoost dimuat sebagai `xgboost.Booster`,
 bukan `XGBClassifier` yang membutuhkan scikit-learn. Prediksi keduanya identik.
 
 ## Struktur backend

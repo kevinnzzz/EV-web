@@ -1,5 +1,3 @@
-"""Preprocessing, feature engineering, dan inferensi ensemble XGBoost x CatBoost — dipakai notebook dan FastAPI."""
-
 import json
 from pathlib import Path
 
@@ -13,7 +11,6 @@ NUMERIC = [
     "Age", "Annual_Income_USD", "Daily_Commute_km", "Number_of_Cars_Owned",
     "Charging_Stations_Near_Home", "Charging_Stations_Near_Work", "Environmental_Concern_Level",
 ]
-# Kategori tetap: encoding 1 baris dari API identik dengan encoding saat training.
 CATEGORIES = {
     "Gender": ["Female", "Male", "Other"],
     "City_Type": ["Rural", "Suburban", "Urban"],
@@ -24,10 +21,10 @@ TO_INT = {
     "Subsidy_Available": {"No": 0, "Yes": 1},
     "Range_Anxiety_Level": {"Low": 0, "Medium": 1, "High": 2},
 }
-FEATURES = NUMERIC + list(CATEGORIES) + list(TO_INT)  # 13 kolom input = kolom dataset asli
+FEATURES = NUMERIC + list(CATEGORIES) + list(TO_INT)
 NUM_AS_CAT = ["Age", "Daily_Commute_km", "Number_of_Cars_Owned", "Charging_Stations_Near_Home",
               "Charging_Stations_Near_Work", "Environmental_Concern_Level"]
-FE_GROUPS = {  # kandidat fitur turunan, semuanya dihitung dari 13 kolom input
+FE_GROUPS = {
     "domain": ["Total_Charging_Stations", "Income_per_Car", "Concern_x_Subsidy", "Income_x_Concern",
                "Anxiety_x_Commute", "Commute_per_Station", "Charging_Access"],
     "clip": ["Income_Clipped", "Commute_Clipped"],
@@ -37,12 +34,10 @@ FE_GROUPS = {  # kandidat fitur turunan, semuanya dihitung dari 13 kolom input
 
 
 def freq_maps(df: pd.DataFrame) -> dict:
-    """Frekuensi tiap nilai numerik — dihitung dari data train saja, tanpa target."""
     return {c: df[c].astype(float).value_counts() for c in NUMERIC}
 
 
 def prepare(df: pd.DataFrame, freq: dict) -> pd.DataFrame:
-    """13 kolom mentah (CSV / payload API) -> semua fitur kandidat; tiap model memakai subsetnya sendiri."""
     X = df[FEATURES].copy()
     for col, mapping in TO_INT.items():
         X[col] = X[col].map(mapping)
@@ -63,54 +58,43 @@ def prepare(df: pd.DataFrame, freq: dict) -> pd.DataFrame:
                             + (X["Charging_Stations_Near_Work"] > 0))
     X["Income_Clipped"] = (X["Annual_Income_USD"] <= 30_000).astype(int)
     X["Commute_Clipped"] = (X["Daily_Commute_km"] <= 5).astype(int)
-    for col, counts in freq.items():  # nilai yang tidak pernah muncul di train -> 0
+    for col, counts in freq.items():
         X[f"{col}_freq"] = X[col].astype(float).map(counts).fillna(0)
-    for col in NUM_AS_CAT:  # string -> cat_feature CatBoost; nilai baru = kategori baru
+    for col in NUM_AS_CAT:
         X[f"{col}_cat"] = X[col].astype(float).astype(str).astype(object)
     return X
 
 
 def prior_correct(p: np.ndarray, s: float) -> np.ndarray:
-    """Model dengan bobot kelas positif s memprediksi odds s kali lipat -> kembalikan ke probabilitas asli."""
     return p / (p + s * (1 - p))
 
 
 def load_meta(model_dir) -> dict:
-    """Isi ensemble.json: fitur per model, bobot, threshold, prior scale, tabel frekuensi, metrik holdout."""
     meta = json.loads((Path(model_dir) / "ensemble.json").read_text())
     meta["freq"] = {c: pd.Series({float(k): n for k, n in m.items()}) for c, m in meta["freq"].items()}
     return meta
 
 
-def load_seeds(model_dir, name: str, n_seeds: int) -> list:
-    """Model per seed untuk satu algoritma: "xgb" (.ubj) atau "cat" (.cbm)."""
-    model_dir = Path(model_dir)
+def load_model(model_dir, name: str) -> Booster | CatBoostClassifier:
     if name == "cat":
-        return [CatBoostClassifier().load_model(str(model_dir / f"cat_{i}.cbm")) for i in range(n_seeds)]
-    # Booster, bukan XGBClassifier: wrapper sklearn mewajibkan scikit-learn (+~50 MB RSS di server);
-    # inplace_predict = jalur yang dipakai XGBClassifier.predict_proba, hasil identik
-    xgb = [Booster(model_file=model_dir / f"xgb_{i}.ubj") for i in range(n_seeds)]
-    for b in xgb:
-        b.set_param({"device": "cpu"})  # model hasil training GPU tetap jalan di server CPU
-    return xgb
+        return CatBoostClassifier().load_model(str(Path(model_dir) / "cat.cbm"))
+    booster = Booster(model_file=Path(model_dir) / "xgb.ubj")
+    booster.set_param({"device": "cpu"})
+    return booster
 
 
 def load(model_dir) -> dict:
-    """Muat artefak notebook -> {'xgb': [model per seed], 'cat': [...], + isi ensemble.json}."""
-    meta = load_meta(model_dir)
-    return {**meta, **{name: load_seeds(model_dir, name, meta["n_seeds"]) for name in ("xgb", "cat")}}
+    return {**load_meta(model_dir), **{name: load_model(model_dir, name) for name in ("xgb", "cat")}}
 
 
 def predict_proba(models: dict, df: pd.DataFrame, model: str = "ensemble") -> np.ndarray:
-    """P(Will_Buy_EV = Yes). "xgb" / "cat": rata-rata antar-seed -> prior correction;
-    "ensemble": weighted soft voting keduanya."""
     X = prepare(df, models["freq"])
     p = {}
     for name in ("xgb", "cat"):
         if model in (name, "ensemble"):
-            Xm = X[models["features"][name]]
-            seeds = [m.inplace_predict(Xm) if name == "xgb" else m.predict_proba(Xm)[:, 1] for m in models[name]]
-            p[name] = prior_correct(np.mean(seeds, axis=0), models["prior_scale"][name])
+            Xm, m = X[models["features"][name]], models[name]
+            raw = m.inplace_predict(Xm) if name == "xgb" else m.predict_proba(Xm)[:, 1]
+            p[name] = prior_correct(raw, models["prior_scale"][name])
     if model != "ensemble":
         return p[model]
     return models["weight_xgb"] * p["xgb"] + (1 - models["weight_xgb"]) * p["cat"]

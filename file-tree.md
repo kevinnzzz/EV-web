@@ -26,15 +26,11 @@
 │   │   ├── 🖼️ roc-auc.png
 │   │   ├── 🖼️ xgb hyperparameter features importance.png
 │   │   └── 🖼️ xgb optimize.png
-│   ├── 📄 cat_0.cbm
-│   ├── 📄 cat_1.cbm
-│   ├── 📄 cat_2.cbm
+│   ├── 📄 cat.cbm
 │   ├── ⚙️ ensemble.json
 │   ├── 📄 optuna.db
 │   ├── 📄 sample_predictions.csv
-│   ├── 📄 xgb_0.ubj
-│   ├── 📄 xgb_1.ubj
-│   └── 📄 xgb_2.ubj
+│   └── 📄 xgb.ubj
 ├── 📁 notebook
 │   ├── 📄 logs.txt
 │   └── 📄 main.ipynb

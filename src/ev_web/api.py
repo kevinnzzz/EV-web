@@ -1,9 +1,3 @@
-"""FastAPI prediksi Will_Buy_EV — kontrak endpoint & error: BACKEND.md.
-
-Input = 13 kolom asli dataset; preprocessing + FE lewat ev_web.model, identik dengan training.
-Jalankan lokal: `uv run uvicorn ev_web.api:app --reload` -> http://127.0.0.1:8000/docs
-"""
-
 import logging
 import os
 import time
@@ -23,16 +17,13 @@ from ev_web import model as ev
 MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).resolve().parents[2] / "model"))
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
                 .split(",") if o.strip()]
-# id di API -> (kunci ev.predict_proba, kunci ensemble.json["holdout"] = nama tampilan)
 MODELS = {"xgboost": ("xgb", "XGBoost"), "catboost": ("cat", "CatBoost"), "ensemble": ("ensemble", "Ensemble")}
 
 log = logging.getLogger("uvicorn.error")
-STATE: dict = {}  # isi ensemble.json + model yang berhasil dimuat. Read-only setelah startup.
+STATE: dict = {}
 
 
 class Customer(BaseModel):
-    """13 kolom asli dataset. Batas numerik = rentang data training: di luar itu model tidak pernah belajar."""
-
     model_config = ConfigDict(extra="forbid")
 
     Age: int = Field(ge=25, le=69, title="Usia", description="Tahun")
@@ -44,7 +35,6 @@ class Customer(BaseModel):
     Charging_Stations_Near_Work: int = Field(ge=0, le=19, title="Stasiun charging dekat tempat kerja")
     Environmental_Concern_Level: int = Field(ge=1, le=5, title="Kepedulian lingkungan",
                                              description="Skala 1 (rendah) sampai 5 (tinggi)")
-    # pilihan kategori diambil dari encoding training -> API tidak bisa menerima nilai yang tidak dikenal model
     Gender: Literal[*ev.CATEGORIES["Gender"]] = Field(title="Gender")
     City_Type: Literal[*ev.CATEGORIES["City_Type"]] = Field(title="Tipe wilayah tempat tinggal")
     Current_Car_Type: Literal[*ev.CATEGORIES["Current_Car_Type"]] = Field(title="Tipe mobil saat ini")
@@ -66,7 +56,7 @@ class Prediction(BaseModel):
     threshold: float = Field(description="Ambang F1-optimal dari OOF; prediction = 1 jika probability >= threshold")
 
 
-FEATURES = [  # skema form frontend, diturunkan dari validasi di atas -> keduanya tidak bisa beda
+FEATURES = [
     {"name": name, "label": p["title"], "type": "select" if "enum" in p else p["type"], "required": True,
      "description": p.get("description"), "min": p.get("minimum"), "max": p.get("maximum"),
      "options": [{"label": v, "value": v} for v in p["enum"]] if "enum" in p else None}
@@ -76,17 +66,17 @@ FEATURES = [  # skema form frontend, diturunkan dari validasi di atas -> keduany
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    STATE.update(ev.load_meta(MODEL_DIR))  # tanpa ensemble.json tidak ada yang bisa dilayani -> startup gagal
-    for key in ("xgb", "cat"):  # gagal satu algoritma -> API tetap jalan, status degraded
+    STATE.update(ev.load_meta(MODEL_DIR))
+    for key in ("xgb", "cat"):
         t = time.perf_counter()
         try:
-            STATE[key] = ev.load_seeds(MODEL_DIR, key, STATE["n_seeds"])
+            STATE[key] = ev.load_model(MODEL_DIR, key)
         except Exception:
             log.exception("Gagal memuat model %s; API berjalan degraded", key)
             continue
-        log.info("Model %s: %d seed dimuat (%.1f s)", key, STATE["n_seeds"], time.perf_counter() - t)
-    for b in STATE.get("xgb", []):
-        b.set_param({"nthread": 1})  # 1 baris per request: thread pool XGBoost justru ~2x lebih lambat
+        log.info("Model %s dimuat (%.1f s)", key, time.perf_counter() - t)
+    if "xgb" in STATE:
+        STATE["xgb"].set_param({"nthread": 1})
     yield
     STATE.clear()
 
@@ -107,7 +97,6 @@ def ready(key: str) -> bool:
 
 @app.exception_handler(RequestValidationError)
 async def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
-    """Error di dalam `features` -> 422 INVALID_FEATURES; selain itu (JSON rusak, body salah bentuk) -> 400."""
     errors = exc.errors()
     if all(e["loc"][:2] == ("body", "features") for e in errors):
         status, code, message = 422, "INVALID_FEATURES", "Periksa kembali input yang diberikan."

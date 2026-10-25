@@ -1,5 +1,3 @@
-"""Uji kontrak API (BACKEND.md) memakai artefak asli di model/."""
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,13 +6,13 @@ from fastapi.testclient import TestClient
 from ev_web import api
 from ev_web import model as ev
 
-SAMPLE = pd.read_csv(api.MODEL_DIR / "sample_predictions.csv")  # 1000 baris holdout + P(Yes) dari run Kaggle
+SAMPLE = pd.read_csv(api.MODEL_DIR / "sample_predictions.csv")
 ROWS = SAMPLE.drop(columns="p_expected").to_dict("records")
 
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(api.app) as c:  # `with` -> lifespan jalan, model dimuat sekali
+    with TestClient(api.app) as c:
         yield c
 
 
@@ -44,7 +42,7 @@ def test_features_follow_training_encoding(client):
     assert list(feats) == ev.FEATURES
     for col, cats in {**ev.CATEGORIES, **ev.TO_INT}.items():
         assert feats[col]["type"] == "select" and [o["value"] for o in feats[col]["options"]] == list(cats)
-    for col in ev.NUMERIC:  # batas validasi = rentang nilai yang dilihat model (tabel frekuensi train)
+    for col in ev.NUMERIC:
         seen = api.STATE["freq"][col].index
         assert (feats[col]["min"], feats[col]["max"]) == (seen.min(), seen.max())
 
@@ -73,11 +71,11 @@ def test_commute_rounded_to_training_resolution(client):
 
 
 @pytest.mark.parametrize("field, value", [
-    ("Age", "tiga puluh"),           # tipe salah
-    ("Number_of_Cars_Owned", 0),     # di luar rentang training (Income_per_Car tak terdefinisi)
-    ("Age", 80),                     # di luar rentang training
-    ("City_Type", "Mars"),           # kategori tidak dikenal
-    ("Annual_Income_USD", 50_000.5), # pecahan di kolom bilangan bulat
+    ("Age", "tiga puluh"),
+    ("Number_of_Cars_Owned", 0),
+    ("Age", 80),
+    ("City_Type", "Mars"),
+    ("Annual_Income_USD", 50_000.5),
 ])
 def test_invalid_feature_value(client, field, value):
     r = predict(client, {**ROWS[0], field: value})
