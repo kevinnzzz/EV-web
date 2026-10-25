@@ -1,4 +1,19 @@
 @import "tailwindcss";
+@source "./landing";
+
+@theme {
+  --font-landing: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-ink: #1b2420;
+  --color-forest: #2c3a35;
+  --color-forest-deep: #1b2420;
+  --color-sage: #8da096;
+  --color-mist: #dfe4e0;
+  --color-paper: #fafaf8;
+  --color-card: #f3f3f0;
+  --color-line: #e6e6e1;
+  --color-muted: #6b736e;
+}
 
 @layer base {
   :root {

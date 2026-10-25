@@ -1,16 +1,37 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://evmodel.vercel.app').replace(/\/$/, '');
+
+async function readResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  return response.text();
+}
+
+function getApiErrorMessage(detail, fallback) {
+  if (typeof detail === 'string') return detail;
+  if (!detail || typeof detail !== 'object') return fallback;
+
+  const message = detail.message || fallback;
+  const fieldErrors = Array.isArray(detail.errors)
+    ? detail.errors
+      .map((error) => `${error.field || 'Input'}: ${error.message || 'nilai tidak valid'}`)
+      .join('\n')
+    : '';
+  return fieldErrors ? `${message}\n${fieldErrors}` : message;
+}
 
 /**
  * Memeriksa status kesehatan server backend dan ketersediaan model.
  */
 export async function getHealth() {
-  const response = await fetch(`${API_BASE_URL}/health`, {
+  const response = await fetch(`${API_BASE_URL}/`, {
     headers: { 'Accept': 'application/json' },
   });
   if (!response.ok) {
     throw new Error(`Health check failed with status ${response.status}`);
   }
-  return response.json();
+  return readResponse(response);
 }
 
 /**
@@ -41,40 +62,52 @@ export async function getFeatures() {
 
 /**
  * Mengirimkan fitur ke model untuk mendapatkan hasil prediksi.
- * @param {string} modelName - 'xgboost' atau 'catboost'
- * @param {object} features - objek fitur sesuai skema input model
+ * @param {string} modelName - API deployment ini hanya menyediakan 'xgboost'
+ * @param {object} features - objek fitur formulir dalam bentuk kategori aslinya
  */
 export async function postPredict(modelName, features) {
-  const response = await fetch(`${API_BASE_URL}/predict`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify({
-      model_name: modelName,
-      features: features,
-    }),
-  });
+  if (modelName !== 'xgboost') {
+    throw new Error('API yang terhubung saat ini hanya menyediakan model XGBoost.');
+  }
 
-  if (!response.ok) {
-    let errorDetail = 'Terjadi kesalahan saat memproses prediksi.';
-    try {
-      const errorJson = await response.json();
-      if (errorJson.detail) {
-        errorDetail = typeof errorJson.detail === 'string'
-          ? errorJson.detail
-          : JSON.stringify(errorJson.detail);
-      }
-    } catch {
-      // Abaikan jika respons bukan JSON
+  const payload = {
+    ...features,
+    Home_Charging_Possible: features.Home_Charging_Possible === 'Yes' ? 1 : 0,
+    Subsidy_Available: features.Subsidy_Available === 'Yes' ? 1 : 0,
+    Range_Anxiety_Level: {
+      Low: 1,
+      Medium: 2,
+      High: 3,
+    }[features.Range_Anxiety_Level],
+  };
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/predict`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Tidak dapat menghubungi API di ${API_BASE_URL}. Periksa koneksi dan pastikan CORS FastAPI mengizinkan origin frontend.`,
+      );
     }
-    const err = new Error(errorDetail);
+    throw error;
+  }
+
+  const result = await readResponse(response);
+  if (!response.ok) {
+    const err = new Error(getApiErrorMessage(result?.detail, 'Terjadi kesalahan saat memproses prediksi.'));
     err.status = response.status;
     throw err;
   }
 
-  return response.json();
+  return result;
 }
 
 /**

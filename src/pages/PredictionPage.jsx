@@ -27,7 +27,6 @@ const DEFAULT_FORM_VALUES = {
 };
 
 export default function PredictionPage() {
-  const [selectedModel, setSelectedModel] = useState('xgboost');
   const [formData, setFormData] = useState(DEFAULT_FORM_VALUES);
   const [predictionState, setPredictionState] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const [result, setResult] = useState(null);
@@ -82,13 +81,13 @@ export default function PredictionPage() {
         Environmental_Concern_Level: Number(formData.Environmental_Concern_Level),
       };
 
-      const res = await postPredict(selectedModel, payload);
+      const res = await postPredict('xgboost', payload);
       setResult(res);
       setPredictionState('success');
     } catch (err) {
       setErrorMessage(
         err.message || 
-        'Layanan prediksi API (http://127.0.0.1:8000) sedang tidak aktif atau gagal memproses inferensi.'
+        'API prediksi gagal memproses permintaan. Periksa koneksi, konfigurasi CORS, dan nilai input.'
       );
       setPredictionState('error');
     }
@@ -112,7 +111,7 @@ export default function PredictionPage() {
           <Info className="w-5 h-5 text-[#A97936] shrink-0 mt-0.5" />
           <div className="text-xs md:text-sm text-[#202522] leading-relaxed">
             <span className="font-semibold text-[#202522]">Informasi Layanan Backend: </span>
-            Server API FastAPI lokal saat ini belum dijalankan pada <code className="px-1.5 py-0.5 rounded bg-white font-mono text-xs text-[#26352F]">http://127.0.0.1:8000</code>. Formulir tetap dapat digunakan untuk menguji validasi antarmuka dan struktur kontrak API.
+            API FastAPI belum dapat diakses di <code className="px-1.5 py-0.5 rounded bg-white font-mono text-xs text-[#26352F]">https://evmodel.vercel.app</code>. Jika aplikasi dibuka dari browser, pastikan origin frontend diizinkan oleh konfigurasi CORS API.
           </div>
         </div>
       )}
@@ -125,40 +124,32 @@ export default function PredictionPage() {
             <label className="block text-xs font-semibold text-[#202522] uppercase tracking-wider mb-2.5">
               Pilih Model Machine Learning
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedModel('xgboost')}
-                className={`p-4 rounded-2xl border text-left transition-all btn-press ${
-                  selectedModel === 'xgboost'
-                    ? 'bg-[#26352F] text-white border-[#26352F] shadow-xs'
-                    : 'bg-white text-[#202522] border-[#E5E3DE] hover:bg-[#F6F5F2]'
-                }`}
+                className="p-4 rounded-2xl border text-left bg-[#26352F] text-white border-[#26352F] shadow-xs"
+                aria-pressed="true"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-sm">XGBoost</span>
-                  <span className={`w-2 h-2 rounded-full ${selectedModel === 'xgboost' ? 'bg-[#397454]' : 'bg-[#E5E3DE]'}`}></span>
+                  <span className="w-2 h-2 rounded-full bg-[#397454]"></span>
                 </div>
-                <div className={`text-xs ${selectedModel === 'xgboost' ? 'text-[#EBEAE6]' : 'text-[#6B6E6A]'}`}>
-                  Bobot Ensemble 65% (16 Fitur)
+                <div className="text-xs text-[#EBEAE6]">
+                  Model yang tersedia pada API deploy
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setSelectedModel('catboost')}
-                className={`p-4 rounded-2xl border text-left transition-all btn-press ${
-                  selectedModel === 'catboost'
-                    ? 'bg-[#26352F] text-white border-[#26352F] shadow-xs'
-                    : 'bg-white text-[#202522] border-[#E5E3DE] hover:bg-[#F6F5F2]'
-                }`}
+                disabled
+                className="p-4 rounded-2xl border text-left bg-white text-[#6B6E6A] border-[#E5E3DE] cursor-not-allowed opacity-70"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-semibold text-sm">CatBoost</span>
-                  <span className={`w-2 h-2 rounded-full ${selectedModel === 'catboost' ? 'bg-[#397454]' : 'bg-[#E5E3DE]'}`}></span>
+                  <span className="w-2 h-2 rounded-full bg-[#E5E3DE]"></span>
                 </div>
-                <div className={`text-xs ${selectedModel === 'catboost' ? 'text-[#EBEAE6]' : 'text-[#6B6E6A]'}`}>
-                  Bobot Ensemble 35% (35 Fitur)
+                <div className="text-xs">
+                  Belum tersedia pada API ini
                 </div>
               </button>
             </div>
@@ -183,14 +174,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Age"
-                    min="18"
-                    max="80"
+                    min="25"
+                    max="69"
                     required
                     value={formData.Age}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang: 18 - 80 tahun</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang data model: 25 - 69 tahun</span>
                 </div>
 
                 {/* Gender */}
@@ -235,15 +226,15 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Annual_Income_USD"
-                    step="1000"
-                    min="15000"
-                    max="250000"
+                    step="1"
+                    min="30000"
+                    max="188549"
                     required
                     value={formData.Annual_Income_USD}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Contoh: 65000 ($65.000 / tahun)</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Rentang data model: $30.000 - $188.549 / tahun</span>
                 </div>
               </div>
             </div>
@@ -266,14 +257,15 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Daily_Commute_km"
-                    min="1"
-                    max="150"
+                    min="5"
+                    max="98.7"
+                    step="0.1"
                     required
                     value={formData.Daily_Commute_km}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Total km per hari</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">5 - 98,7 km per hari</span>
                 </div>
 
                 {/* Number of Cars Owned */}
@@ -284,14 +276,14 @@ export default function PredictionPage() {
                   <input
                     type="number"
                     name="Number_of_Cars_Owned"
-                    min="0"
-                    max="5"
+                    min="1"
+                    max="4"
                     required
                     value={formData.Number_of_Cars_Owned}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Mobil dalam keluarga</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">1 - 4 mobil</span>
                 </div>
 
                 {/* Current Car Type */}
@@ -333,13 +325,13 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Home"
                     min="0"
-                    max="20"
+                    max="14"
                     required
                     value={formData.Charging_Stations_Near_Home}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Radius 5 km</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">0 - 14 stasiun · radius 5 km</span>
                 </div>
 
                 {/* Stations Near Work */}
@@ -351,13 +343,13 @@ export default function PredictionPage() {
                     type="number"
                     name="Charging_Stations_Near_Work"
                     min="0"
-                    max="20"
+                    max="19"
                     required
                     value={formData.Charging_Stations_Near_Work}
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E5E3DE] text-sm text-[#202522] focus:outline-hidden focus:border-[#26352F] focus:ring-1 focus:ring-[#26352F] transition-all"
                   />
-                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">Radius 5 km</span>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">0 - 19 stasiun · radius 5 km</span>
                 </div>
 
                 {/* Home Charging Possible */}
@@ -438,6 +430,9 @@ export default function PredictionPage() {
                     <option value="Medium">Medium (Sedang)</option>
                     <option value="High">High (Kekhawatiran Tinggi)</option>
                   </select>
+                  <span className="text-[11px] text-[#6B6E6A] mt-1 block">
+                    Dikirim sebagai skala ordinal 1 (Low) - 3 (High)
+                  </span>
                 </div>
               </div>
             </div>
@@ -483,7 +478,7 @@ export default function PredictionPage() {
                 Hasil Inferensi Model
               </span>
               <span className="text-xs px-2.5 py-1 rounded-md bg-[#F6F5F2] text-[#202522] font-mono capitalize">
-                {selectedModel}
+                XGBoost
               </span>
             </div>
 
@@ -542,9 +537,13 @@ export default function PredictionPage() {
                         style={{ width: `${Math.min(Math.max(result.probability * 100, 0), 100)}%` }}
                       ></div>
                     </div>
-                    <div className="flex justify-between text-[11px] text-[#6B6E6A] pt-1">
-                      <span>Threshold optimal: ~35.2%</span>
-                      <span>Keputusan: {result.probability >= 0.352 ? 'Beli (Yes)' : 'Tidak (No)'}</span>
+                    <div className="flex justify-between gap-3 text-[11px] text-[#6B6E6A] pt-1">
+                      <span>
+                        Threshold model: {result.threshold === undefined
+                          ? '—'
+                          : `${(result.threshold * 100).toFixed(2)}%`}
+                      </span>
+                      <span>Keputusan API: {result.prediction === 1 ? 'Beli (Yes)' : 'Tidak (No)'}</span>
                     </div>
                   </div>
                 )}
@@ -580,17 +579,18 @@ export default function PredictionPage() {
                 <div className="p-4 rounded-2xl bg-[#B94A42]/10 border border-[#B94A42]/20 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-[#B94A42] shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-semibold text-[#B94A42]">Koneksi API Tidak Tersedia</h4>
-                    <p className="text-xs text-[#202522] mt-1 leading-relaxed">
+                    <h4 className="text-sm font-semibold text-[#B94A42]">Prediksi Gagal</h4>
+                    <p className="whitespace-pre-line text-xs text-[#202522] mt-1 leading-relaxed">
                       {errorMessage}
                     </p>
                   </div>
                 </div>
 
                 <div className="bg-[#F6F5F2] rounded-2xl p-4 text-xs text-[#6B6E6A] space-y-2">
-                  <span className="font-semibold text-[#202522] block">Petunjuk Pengembangan:</span>
+                  <span className="font-semibold text-[#202522] block">Informasi API:</span>
                   <p>
-                    Frontend siap mengirim payload sesuai kontrak API ke endpoint <code className="text-[#202522] font-mono">POST /predict</code>. Saat tim backend mengaktifkan FastAPI di port 8000, tombol di bawah dapat digunakan untuk mencoba kembali.
+                    Permintaan dikirim ke <code className="text-[#202522] font-mono">https://evmodel.vercel.app/predict</code>.
+                    Jika error koneksi terjadi dari browser, tambahkan origin website frontend ke konfigurasi CORS FastAPI.
                   </p>
                 </div>
 
@@ -612,7 +612,7 @@ export default function PredictionPage() {
               <span>Tentang Inferensi Model</span>
             </h4>
             <p className="text-xs text-[#6B6E6A] leading-relaxed">
-              Model XGBoost dan CatBoost yang tersimpan di repositori dilatih menggunakan 3 random seed dengan koreksi rasio kelas (prior scale correction). Pada data holdout, keduanya mencapai skor ROC-AUC di atas 94,2% dengan akurasi klasifikasi sekitar 89,1%.
+              Prediksi dikirim ke API FastAPI XGBoost yang telah di-deploy. Probabilitas dan keputusan klasifikasi menggunakan nilai threshold yang dikembalikan langsung oleh API.
             </p>
             <div className="text-[11px] text-[#6B6E6A] pt-2 border-t border-[#E5E3DE]">
               Target: <span className="font-mono text-[#202522]">Will_Buy_EV (Yes / No)</span>
